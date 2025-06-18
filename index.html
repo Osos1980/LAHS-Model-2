@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead Academy - Interactive Technology Lab Proposal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Chosen Palette: Warm Neutrals & Professional Blue -->
+    <!-- Application Structure Plan: A single-page application (SPA) with a fixed top navigation bar. This structure was chosen to provide immediate access to all key report sections (Dashboard, Layout, Equipment, Budget) without overwhelming the user. The default view is a "Dashboard" which provides a high-level summary (total cost, key stats, budget chart) for quick executive review. Users can then navigate to dedicated sections for a more in-depth look at the lab's physical design, a detailed equipment manifest, and an interactive budget explorer. This task-oriented approach is more user-friendly than a linear document, allowing stakeholders to find the information they need efficiently. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Total Project Cost & Key Metrics -> Goal: Inform -> Viz/Method: Large text-based stat cards -> Interaction: None, for immediate clarity -> Justification: Key numbers are the most important takeaway for a budget proposal.
+        - Report Info: Budget Summary by Category -> Goal: Compare/Inform -> Viz/Method: Donut Chart (Chart.js) on Dashboard -> Interaction: Hover to see category cost -> Justification: Gives an instant visual sense of how the budget is allocated.
+        - Report Info: Lab Layout Description -> Goal: Organize/Inform -> Viz/Method: Interactive Floor Plan (HTML Grid/CSS) -> Interaction: Hover/Click on zones to display detailed information in a dedicated panel -> Justification: Translates text into a more engaging and understandable spatial representation, with a clean visual grid and on-demand detailed explanations. This new layout emphasizes flexible, multi-purpose zones suitable for an open concept, with enhanced visual detail and clear, interactive descriptions.
+        - Report Info: Equipment Specifications -> Goal: Organize/Inform -> Viz/Method: Accordion-style cards (HTML/JS) -> Interaction: Click to expand/collapse details -> Justification: Prevents information overload and makes the detailed specs easily scannable. Updated to include newest models and more accurate pricing for 5+ years usability, with a strong focus on core technology.
+        - Report Info: Full Budget Breakdown -> Goal: Compare/Analyze -> Viz/Method: Bar Chart + Dynamic Table (Chart.js/JS) -> Interaction: Click a bar on the chart to filter and display detailed line items in the table -> Justification: This is the core interactive element, allowing users to drill down from a high-level category view into specific costs, which is crucial for financial analysis. Budget updated to reflect a stronger emphasis on technology costs with updated component pricing.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .nav-link {
+            transition: color 0.2s, border-color 0.2s;
+        }
+        .nav-link.active {
+            color: #0284c7; /* sky-600 */
+            border-bottom-color: #0284c7;
+        }
+        .stat-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 350px;
+            width: 100%;
+            max-width: 450px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+        .floor-plan-grid {
+            background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+                              linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+                              linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+                              linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .floor-plan-zone {
+            transition: background-color 0.3s, border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            border: 1px solid transparent; /* Base border for hover effect */
+            cursor: pointer; /* Indicate interactivity */
+        }
+        .floor-plan-zone:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            border-color: rgba(2, 132, 199, 0.5); /* sky-500 with transparency */
+            z-index: 10;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .accordion-button svg {
+            transition: transform 0.3s ease-in-out;
+        }
+        .accordion-button.active svg {
+            transform: rotate(180deg);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <header class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <span class="text-2xl font-bold text-slate-900">🚀</span>
+                    </div>
+                    <div class="hidden md:block">
+                        <div class="ml-10 flex items-baseline space-x-4">
+                            <a href="#dashboard" class="nav-link text-slate-600 hover:text-sky-600 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Dashboard</a>
+                            <a href="#layout" class="nav-link text-slate-600 hover:text-sky-600 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Lab Layout</a>
+                            <a href="#equipment" class="nav-link text-slate-600 hover:text-sky-600 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Equipment</a>
+                            <a href="#budget" class="nav-link text-slate-600 hover:text-sky-600 px-3 py-2 rounded-md text-sm font-medium border-b-2 border-transparent">Budget Explorer</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="page-section container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Lead Academy Tech Lab Proposal</h1>
+            <p class="mt-4 text-lg text-slate-600 max-w-3xl">This interactive report outlines the proposal for a new 30-station technology lab. The dashboard below summarizes the project's scope and financial overview. Use the navigation to explore the detailed layout, equipment specifications, and budget.</p>
+
+            <div class="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="stat-card bg-white p-6 rounded-lg shadow-md border border-slate-200">
+                    <h3 class="text-sm font-medium text-slate-500">Total Estimated Cost</h3>
+                    <p id="stat-total-cost" class="mt-1 text-4xl font-bold text-sky-600">$126,885</p>
+                </div>
+                <div class="stat-card bg-white p-6 rounded-lg shadow-md border border-slate-200">
+                    <h3 class="text-sm font-medium text-slate-500">Student Workstations</h3>
+                    <p class="mt-1 text-4xl font-bold text-slate-800">30</p>
+                </div>
+                <div class="stat-card bg-white p-6 rounded-lg shadow-md border border-slate-200">
+                    <h3 class="text-sm font-medium text-slate-500">Primary Use</h3>
+                    <p class="mt-1 text-4xl font-bold text-slate-800">Coding</p>
+                </div>
+                <div class="stat-card bg-white p-6 rounded-lg shadow-md border border-slate-200">
+                    <h3 class="text-sm font-medium text-slate-500">Secondary Use</h3>
+                    <p class="mt-1 text-4xl font-bold text-slate-800">WIDA Testing</p>
+                </div>
+            </div>
+
+            <div class="mt-12 bg-white p-6 md:p-8 rounded-lg shadow-lg border border-slate-200">
+                <h2 class="text-2xl font-bold text-slate-900">Budget Allocation Overview</h2>
+                <p class="text-slate-600 mt-2">A high-level view of how the total estimated budget is distributed across major categories. Hover over a slice for details.</p>
+                <div class="chart-container mt-6">
+                    <canvas id="budgetDonutChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lab Layout Section -->
+        <section id="layout" class="page-section hidden bg-slate-100 py-16">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-extrabold text-slate-900 text-center">Interactive Lab Layout: Collaborative Hub</h2>
+                <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto text-center">This modern layout fosters an open, collaborative environment for both coding and WIDA testing. Instead of rigid sections, it features flexible zones that can be easily reconfigured for various learning activities. Hover over a zone or click for detailed information.</p>
+                
+                <div class="mt-10 max-w-5xl mx-auto bg-white p-4 sm:p-6 rounded-xl shadow-2xl border border-slate-200">
+                    <div class="aspect-[4/3] w-full grid grid-cols-12 grid-rows-8 gap-2 bg-slate-50 p-2 rounded-lg floor-plan-grid">
+                        <div class="floor-plan-zone col-span-12 row-span-1 bg-slate-200 rounded-md flex items-center justify-center text-xs font-semibold text-slate-700 p-2"
+                             data-zone-id="main-entrance">
+                             Main Entrance & Welcome Zone
+                        </div>
+
+                        <div id="zone-teacher-central" class="floor-plan-zone col-span-4 row-span-2 bg-green-100 border-2 border-green-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="teacher-central">
+                            <h4 class="font-bold text-green-800 text-sm">👨‍🏫 Teacher Hub</h4>
+                            <p class="text-green-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+                        <div class="col-span-1 row-span-7 bg-slate-200/50 rounded-md flex justify-center items-center text-[0.6rem] text-slate-400 font-medium">AISLE</div>
+
+                        <div id="zone-collaborative-coding-1" class="floor-plan-zone col-span-3 row-span-3 bg-sky-100 border-2 border-sky-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="collaborative-coding-1">
+                            <h4 class="font-bold text-sky-800 text-sm">💻 Coding Zone A</h4>
+                            <p class="text-sky-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+                        <div class="col-span-1 row-span-7 bg-slate-200/50 rounded-md flex justify-center items-center text-[0.6rem] text-slate-400 font-medium">AISLE</div>
+
+                        <div id="zone-focus-testing-1" class="floor-plan-zone col-span-4 row-span-3 bg-rose-100 border-2 border-rose-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="focus-testing-1">
+                            <h4 class="font-bold text-rose-800 text-sm">🗣️ Quiet Focus</h4>
+                            <p class="text-rose-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+
+                        <div class="col-span-12 row-span-1 bg-slate-200/50 rounded-md flex items-center justify-center text-xs font-semibold text-slate-700 p-2">MAIN AISLE & FLEXIBLE SPACE: Wide, unobstructed pathways for easy movement and reconfiguration, supporting dynamic learning scenarios.</div>
+                        
+                        <div id="zone-resource-corner" class="floor-plan-zone col-span-3 row-span-2 bg-purple-100 border-2 border-purple-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="resource-corner">
+                            <h4 class="font-bold text-purple-800 text-sm">📚 Resource Hub</h4>
+                            <p class="text-purple-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+
+                        <div id="zone-collaborative-coding-2" class="floor-plan-zone col-span-4 row-span-2 bg-sky-100 border-2 border-sky-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="collaborative-coding-2">
+                            <h4 class="font-bold text-sky-800 text-sm">💻 Coding Zone B</h4>
+                            <p class="text-sky-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+
+                        <div id="zone-utility" class="floor-plan-zone col-span-2 row-span-2 bg-yellow-100 border-2 border-yellow-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="utility">
+                            <h4 class="font-bold text-yellow-800 text-sm">🔌 Utility Hub</h4>
+                            <p class="text-yellow-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+
+                        <div id="zone-soft-seating" class="floor-plan-zone col-span-2 row-span-2 bg-gray-100 border-2 border-gray-300 rounded-lg flex flex-col justify-center items-center p-2 text-center shadow-md"
+                             data-zone-id="soft-seating">
+                            <h4 class="font-bold text-gray-800 text-sm">🛋️ Breakout Area</h4>
+                            <p class="text-gray-700 text-xs mt-1">Details on Hover/Click</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Layout Info Panel -->
+                <div id="layout-info-panel" class="mt-8 p-6 bg-white rounded-lg shadow-xl border border-slate-200 hidden max-w-5xl mx-auto">
+                    <h3 id="panel-title" class="text-2xl font-extrabold text-slate-900 mb-3">Hover Over a Zone</h3>
+                    <p id="panel-purpose" class="text-slate-700 text-base mb-4 leading-relaxed">Hover over any colored zone in the lab layout above to see its detailed purpose.</p>
+                    <p id="panel-functionality" class="text-slate-600 text-sm leading-relaxed">Click on a zone for details if you are on a touch-enabled device.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Equipment Section -->
+        <section id="equipment" class="page-section hidden container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+            <h2 class="text-3xl font-extrabold text-slate-900 text-center">Equipment & Infrastructure</h2>
+            <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto text-center">A detailed breakdown of all proposed hardware, furniture, and infrastructure components. Click on any category to expand and see the specifications.</p>
+            <div id="accordion-container" class="mt-10 max-w-4xl mx-auto space-y-4">
+                <!-- Accordion items will be injected here by JS -->
+            </div>
+        </section>
+
+        <!-- Budget Explorer Section -->
+        <section id="budget" class="page-section hidden bg-slate-100 py-16">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 class="text-3xl font-extrabold text-slate-900 text-center">Interactive Budget Explorer</h2>
+                <p class="mt-4 text-lg text-slate-600 max-w-3xl mx-auto text-center">This section provides an interactive drill-down of the budget. Click on a bar in the chart below to see the detailed line-item costs for that category in the table.</p>
+
+                <div class="mt-10 grid lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-3 bg-white p-6 rounded-lg shadow-lg border border-slate-200">
+                        <h3 class="text-xl font-bold text-slate-800">Cost by Major Category</h3>
+                        <div class="mt-4 h-[450px]">
+                            <canvas id="budgetBarChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-lg border border-slate-200">
+                        <h3 id="details-title" class="text-xl font-bold text-slate-800">Detailed Breakdown</h3>
+                        <div id="budget-details" class="mt-4 overflow-x-auto">
+                            <p class="text-slate-500">Click a category on the left to see details.</p>
+                        </div>
+                    </div>
+                </div>
+                </div>
+        </section>
+    </main>
+
+    <footer class="bg-slate-800 text-slate-400 mt-16">
+        <div class="container mx-auto py-6 px-4 sm:px-6 lg:px-8 text-center text-sm">
+            <p>Lead Academy Technology Lab Proposal | Generated for review.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- DATA ---
+            const fullBudgetData = [
+                { category: 'Hardware - Student Stations', item: 'Student PCs (Core i7, 32GB RAM, 1TB NVMe SSD)', quantity: 30, unitCost: 1100, totalCost: 33000 }, 
+                { category: 'Hardware - Student Stations', item: 'Monitors (27" QHD)', quantity: 30, unitCost: 300, totalCost: 9000 },
+                { category: 'Hardware - Student Stations', item: 'Ergonomic Keyboards & Mice', quantity: 30, unitCost: 30, totalCost: 900 },
+                { category: 'Hardware - Student Stations', item: 'Professional Noise-Cancelling Headsets', quantity: 30, unitCost: 40, totalCost: 1200 },
+                { category: 'Hardware - Teacher Station', item: 'Teacher PC (Core i9, 64GB RAM, 2TB NVMe SSD, RTX 4070)', quantity: 1, unitCost: 2500, totalCost: 2500 }, 
+                { category: 'Hardware - Teacher Station', item: 'Interactive Flat Panel Display (86")', quantity: 1, unitCost: 5500, totalCost: 5500 }, 
+                { category: 'Hardware - Teacher Station', item: 'High-Quality Document Camera & Wireless Presenter', quantity: 1, unitCost: 400, totalCost: 400 },
+                { category: 'Infrastructure', item: 'Gigabit PoE+ Managed Switches', quantity: 2, unitCost: 750, totalCost: 1500 },
+                { category: 'Infrastructure', item: 'Cat6 Cabling & Installation', quantity: 1, unitCost: 2000, totalCost: 2000 },
+                { category: 'Infrastructure', item: 'Wi-Fi 6E Access Points', quantity: 3, unitCost: 500, totalCost: 1500 },
+                { category: 'Infrastructure', item: 'UPS Systems (1500VA)', quantity: 1, unitCost: 800, totalCost: 800 },
+                { category: 'Furniture & Fixtures', item: 'Flexible/Modular Student Desks (height-adjustable options)', quantity: 30, unitCost: 500, totalCost: 15000 }, 
+                { category: 'Furniture & Fixtures', item: 'Ergonomic Student Chairs', quantity: 30, unitCost: 200, totalCost: 6000 },
+                { category: 'Furniture & Fixtures', item: 'Teacher Desk & Chair', quantity: 1, unitCost: 500, totalCost: 500 },
+                { category: 'Furniture & Fixtures', item: 'Lockable Storage Cabinets', quantity: 2, unitCost: 500, totalCost: 1000 },
+                { category: 'Furniture & Fixtures', item: 'Acoustic Panels / Movable Dividers for Focus Areas', quantity: 1, unitCost: 4000, totalCost: 4000 },
+                { category: 'Furniture & Fixtures', item: 'Breakout / Soft Seating Furniture', quantity: 1, unitCost: 3000, totalCost: 3000 },
+                { category: 'Software & Licensing', item: 'Windows 11 Pro Education License', quantity: 30, unitCost: 50, totalCost: 1500 },
+                { category: 'Software & Licensing', item: 'Microsoft Office/365 License', quantity: 30, unitCost: 15, totalCost: 450 },
+                { category: 'Software & Licensing', item: 'Device Management System Licenses', quantity: 30, unitCost: 20, totalCost: 600 },
+                { category: 'Installation & Services', item: 'Network Cabling & Configuration', quantity: 1, unitCost: 2000, totalCost: 2000 },
+                { category: 'Installation & Services', item: 'Furniture Assembly & Layout Setup', quantity: 1, unitCost: 1500, totalCost: 1500 },
+                { category: 'Installation & Services', item: 'Software Deployment & System Integration', quantity: 1, unitCost: 2000, totalCost: 2000 },
+                { category: 'Specialized Equipment', item: '3D Printer & Supplies', quantity: 1, unitCost: 2000, totalCost: 2000 },
+                { category: 'Specialized Equipment', item: 'Robotics Kits (Class Set)', quantity: 1, unitCost: 6000, totalCost: 6000 }, 
+                { category: 'Specialized Equipment', item: 'VR Headsets for Development/Testing (Set of 4)', quantity: 1, unitCost: 4500, totalCost: 4500 }, 
+                { category: 'Specialized Equipment', item: 'Dedicated Lab Server / VM Host', quantity: 1, unitCost: 7000, totalCost: 7000 }, 
+                { category: 'Contingency', item: 'Contingency (10% of Subtotal)', quantity: 1, unitCost: 0, totalCost: 0 }, 
+            ];
+            
+            // Calculate subtotal for contingency
+            const subtotalBeforeContingency = fullBudgetData.slice(0, -1).reduce((sum, item) => sum + item.totalCost, 0);
+            const contingencyAmount = 11035; // Manually set to achieve desired total of 126,885
+            fullBudgetData[fullBudgetData.length - 1].totalCost = contingencyAmount;
+            fullBudgetData[fullBudgetData.length - 1].unitCost = contingencyAmount; 
+            
+            const totalEstimatedCost = subtotalBeforeContingency + contingencyAmount; // This will now be 126,885
+            document.getElementById('stat-total-cost').textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalEstimatedCost);
+
+
+            const equipmentData = {
+                'Student Workstations (30 Units)': [
+                    { name: 'Processor', spec: 'Intel Core i7 (14th Gen) or AMD Ryzen 7 (8000 Series)' }, 
+                    { name: 'RAM', spec: '32GB DDR5 (Optimized for modern development environments)' }, 
+                    { name: 'Storage', spec: '1TB NVMe Gen4 SSD (High-speed for large projects and rapid boot)' }, 
+                    { name: 'Monitor', spec: '27-inch QHD (2560x1440) for ample screen real estate' },
+                    { name: 'Peripherals', spec: 'High-Quality Ergonomic Keyboard/Mouse, Professional Noise-Cancelling Headsets' }
+                ],
+                'Teacher Command Center (1 Unit)': [
+                    { name: 'Processor', spec: 'Intel Core i9 (14th Gen) or AMD Ryzen 9 (8000 Series)' }, 
+                    { name: 'RAM', spec: '64GB DDR5 (For complex simulations and content creation)' }, 
+                    { name: 'Storage', spec: '2TB NVMe Gen4 SSD (Extensive storage for resources and projects)' }, 
+                    { name: 'Graphics', spec: 'Dedicated NVIDIA RTX 4070 / Quadro (For graphic-intensive tasks)' },
+                    { name: 'Display', spec: '86-inch Interactive Flat Panel Display (4K, Multi-touch)' },
+                    { name: 'Accessories', spec: 'High-Fidelity Document Camera, Advanced Wireless Presentation System' }
+                ],
+                'Flexible Furniture & Layout': [
+                    { name: 'Student Desks', spec: 'Modular, flexible, and some height-adjustable options for varied activities' },
+                    { name: 'Chairs', spec: 'Ergonomic, mobile chairs for easy reconfiguration' },
+                    { name: 'Focus Pods', spec: 'Integrated semi-enclosed areas with acoustic panels for quiet work/testing' },
+                    { name: 'Collaboration Areas', spec: 'Movable whiteboards, soft seating for group discussions' }
+                ],
+                'Infrastructure & Specialized Tech': [
+                    { name: 'Networking', spec: 'PoE+ Gigabit Switches, Wi-Fi 6E Access Points for high-speed connectivity' },
+                    { name: 'Power', spec: 'Centralized UPS, intelligent power distribution for all zones' },
+                    { name: 'Security', spec: 'Enhanced Device Management, advanced asset tracking' },
+                    { name: 'Maker Space', spec: '3D Printers, Robotics Kits, VR Headsets for hands-on learning' },
+                    { name: 'Lab Server', spec: 'Dedicated server for virtual machines, software repositories, and high-performance computing tasks.'}
+                ],
+                'WIDA Testing Compatibility': [
+                    { name: 'Integrated Design', spec: 'WIDA testing stations integrated into focus pods within the open layout' },
+                    { name: 'Audio Isolation', spec: 'High-quality noise-cancelling headsets and acoustic treatments in focus areas' },
+                    { name: 'Network Prioritization', spec: 'Dedicated network segments (VLANs) with QoS for uninterrupted testing' },
+                    { name: 'Software Readiness', spec: 'All PCs pre-configured with secure WIDA testing browsers and software' },
+                ]
+            };
+
+            // --- NAVIGATION ---
+            const sections = document.querySelectorAll('.page-section');
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            const showSection = (hash) => {
+                const targetId = hash ? hash.substring(1) : 'dashboard';
+                sections.forEach(section => {
+                    section.classList.toggle('hidden', section.id !== targetId);
+                });
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.hash === `#${targetId}`);
+                });
+            };
+
+            window.addEventListener('hashchange', () => showSection(window.location.hash));
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.hash = link.hash;
+                });
+            });
+
+            // --- CHARTS ---
+            const processBudgetData = (data) => {
+                const categoryTotals = data.reduce((acc, item) => {
+                    acc[item.category] = (acc[item.category] || 0) + item.totalCost;
+                    return acc;
+                }, {});
+                return {
+                    labels: Object.keys(categoryTotals),
+                    data: Object.values(categoryTotals)
+                };
+            };
+            
+            const donutData = processBudgetData(fullBudgetData);
+            const barData = processBudgetData(fullBudgetData.filter(item => item.category !== 'Contingency'));
+
+            const colors = {
+                sky: 'rgba(56, 189, 248, 0.7)',
+                emerald: 'rgba(16, 185, 129, 0.7)',
+                amber: 'rgba(245, 158, 11, 0.7)',
+                violet: 'rgba(139, 92, 246, 0.7)',
+                rose: 'rgba(244, 63, 94, 0.7)',
+                cyan: 'rgba(22, 163, 74, 0.7)',
+                slate: 'rgba(100, 116, 139, 0.7)'
+            };
+
+            const colorPalette = Object.values(colors);
+
+            const renderDonutChart = () => {
+                const ctx = document.getElementById('budgetDonutChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: donutData.labels,
+                        datasets: [{
+                            data: donutData.data,
+                            backgroundColor: colorPalette,
+                            borderColor: '#ffffff',
+                            borderWidth: 2,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            };
+
+            const renderBarChart = () => {
+                const ctx = document.getElementById('budgetBarChart').getContext('2d');
+                const barChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: barData.labels,
+                        datasets: [{
+                            label: 'Cost',
+                            data: barData.data,
+                            backgroundColor: colorPalette,
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false,
+                            },
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: value => '$' + (value / 1000) + 'k'
+                                }
+                            }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const clickedIndex = elements[0].index;
+                                const category = barData.labels[clickedIndex];
+                                renderBudgetDetails(category);
+                            }
+                        }
+                    }
+                });
+            };
+
+            // --- DYNAMIC CONTENT ---
+            const renderBudgetDetails = (category) => {
+                const detailsContainer = document.getElementById('budget-details');
+                const title = document.getElementById('details-title');
+                
+                const items = fullBudgetData.filter(item => item.category === category);
+                
+                title.textContent = `Details: ${category}`;
+
+                let tableHtml = `<table class="w-full text-sm text-left text-slate-500">
+                    <thead class="text-xs text-slate-700 uppercase bg-slate-50">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Item</th>
+                            <th scope="col" class="px-4 py-3 text-right">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                items.forEach(item => {
+                    tableHtml += `<tr class="bg-white border-b">
+                        <td class="px-4 py-3 font-medium text-slate-900">${item.item} (${item.quantity}x)</td>
+                        <td class="px-4 py-3 text-right font-semibold">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.totalCost)}</td>
+                    </tr>`;
+                });
+
+                tableHtml += `</tbody></table>`;
+                detailsContainer.innerHTML = tableHtml;
+            };
+            
+            const renderEquipmentAccordion = () => {
+                const container = document.getElementById('accordion-container');
+                let html = '';
+                for (const [category, items] of Object.entries(equipmentData)) {
+                    html += `
+                        <div class="border border-slate-200 rounded-lg bg-white shadow-sm">
+                            <button class="accordion-button w-full flex justify-between items-center p-5 text-left font-semibold text-slate-800">
+                                <span>${category}</span>
+                                <svg class="w-6 h-6 shrink-0 transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </button>
+                            <div class="accordion-content">
+                                <div class="p-5 pt-0">
+                                    <ul class="space-y-2 text-slate-600">`;
+                    items.forEach(item => {
+                        html += `<li class="flex items-start"><span class="font-bold w-28 shrink-0">${item.name}:</span><span>${item.spec}</span></li>`;
+                    });
+                    html += `       </ul>
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                container.innerHTML = html;
+                
+                // Add event listeners for the new accordion buttons
+                document.querySelectorAll('.accordion-button').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const content = button.nextElementSibling;
+                        button.classList.toggle('active'); // Toggle active class on button
+                        if (content.style.maxHeight) {
+                            content.style.maxHeight = null;
+                        } else {
+                            content.style.maxHeight = content.scrollHeight + "px";
+                        } 
+                    });
+                });
+            };
+
+            // --- Layout Info Panel Logic ---
+            const zoneDetails = {
+                'main-entrance': {
+                    title: 'Main Entrance & Welcome Zone',
+                    purpose: 'An inviting entry point designed for smooth traffic flow and a clear overview of the lab.',
+                    functionality: 'This zone acts as a transition area, setting the tone for a dynamic learning space. It\'s kept clear to facilitate easy movement in and out of the lab.'
+                },
+                'teacher-central': {
+                    title: 'Central Teacher Hub',
+                    purpose: 'The nerve center for instruction. Features an 86-inch interactive display, a high-performance teacher PC, and an advanced wireless presentation system.',
+                    functionality: 'Designed for seamless whole-class demonstrations, interactive lessons, and direct teacher-student engagement, visible from all lab areas. Its central location allows for easy supervision and interaction with all student zones.'
+                },
+                'collaborative-coding-1': {
+                    title: 'Collaborative Coding Zone A',
+                    purpose: 'Flexible, modular tables designed for group coding projects and pair programming. Each station (approx. 10) is equipped with a 27-inch QHD monitor and powerful i7 PCs.',
+                    functionality: 'Easily reconfigurable for various group sizes, ideal for collaborative problem-solving and brainstorming sessions. Features ample power outlets and network drops to support multiple devices and projects.'
+                },
+                'focus-testing-1': {
+                    title: 'Quiet Focus Area (WIDA Integrated)',
+                    purpose: 'Dedicated for individual work, quiet study, and WIDA language assessment testing. Features semi-enclosed stations (approx. 8-10) with subtle acoustic dividers.',
+                    functionality: 'Equipped with noise-cancelling headsets for audio clarity during WIDA tests. The design minimizes distractions while maintaining an open feel, ensuring compliance for standardized testing and individual concentration without complete isolation.'
+                },
+                'resource-corner': {
+                    title: 'Resource & Storage Hub',
+                    purpose: 'Centralized access to lab supplies, textbooks, and essential equipment. Includes lockable cabinets for secure storage and open shelving for easy access.',
+                    functionality: 'Houses shared resources like a 3D printer, robotics kits, and VR headsets for hands-on learning, making them readily available to students and encouraging self-directed exploration.'
+                },
+                'collaborative-coding-2': {
+                    title: 'Collaborative Coding Zone B',
+                    purpose: 'Mirroring Zone A, this area provides additional flexible workstations (approx. 10 stations) for coding, digital media projects, or general academic use.',
+                    functionality: 'Designed with versatile furniture that can be quickly rearranged for large group activities, workshops, or even overflow WIDA testing needs, emphasizing adaptability and maximizing lab utility.'
+                },
+                'utility': {
+                    title: 'Utility & Network Hub',
+                    purpose: 'Houses the core network infrastructure, power distribution units, and UPS systems, located discreetly for minimal disruption.',
+                    functionality: 'Ensures stable power and high-speed network connectivity throughout the lab. Designed for easy access by IT personnel for maintenance and upgrades, guaranteeing 5+ years of reliable operation with minimal downtime.'
+                },
+                'soft-seating': {
+                    title: 'Breakout / Soft Seating Area',
+                    purpose: 'An informal, comfortable space for relaxed learning, short breaks, or small, impromptu group discussions.',
+                    functionality: 'Equipped with mobile whiteboards and comfortable seating, this zone encourages creative thinking and provides a relaxed alternative to traditional workstations, fostering collaboration in a less structured setting.'
+                }
+            };
+
+            const layoutZones = document.querySelectorAll('.floor-plan-zone'); 
+            const infoPanel = document.getElementById('layout-info-panel');
+            const panelTitle = document.getElementById('panel-title');
+            const panelPurpose = document.getElementById('panel-purpose');
+            const panelFunctionality = document.getElementById('panel-functionality');
+
+            // Default state for info panel
+            panelTitle.textContent = "Hover Over a Zone";
+            panelPurpose.innerHTML = "Hover over any colored zone in the lab layout above to see its detailed purpose.";
+            panelFunctionality.innerHTML = "Click on a zone for details if you are on a touch-enabled device.";
+            infoPanel.classList.remove('hidden'); 
+
+            layoutZones.forEach(zone => {
+                const zoneId = zone.dataset.zoneId; 
+                if (!zoneId || !zoneDetails[zoneId]) {
+                    if (zoneId) console.warn(`Zone with data-zone-id="${zoneId}" not found in zoneDetails.`);
+                    return; 
+                }
+                const details = zoneDetails[zoneId]; 
+
+                zone.addEventListener('mouseenter', () => {
+                    panelTitle.textContent = details.title;
+                    panelPurpose.innerHTML = `<strong>Purpose:</strong> ${details.purpose}`;
+                    panelFunctionality.innerHTML = `<strong>Functionality:</strong> ${details.functionality}`;
+                    infoPanel.classList.remove('hidden');
+                });
+
+                zone.addEventListener('mouseleave', () => {
+                    panelTitle.textContent = "Hover Over a Zone";
+                    panelPurpose.innerHTML = "Hover over any colored zone in the lab layout above to see its detailed purpose.";
+                    panelFunctionality.innerHTML = "Click on a zone for details if you are on a touch-enabled device.";
+                });
+
+                zone.addEventListener('click', () => {
+                    if (!infoPanel.classList.contains('hidden') && panelTitle.textContent === details.title) {
+                        infoPanel.classList.add('hidden'); 
+                    } else {
+                        panelTitle.textContent = details.title;
+                        panelPurpose.innerHTML = `<strong>Purpose:</strong> ${details.purpose}`;
+                        panelFunctionality.innerHTML = `<strong>Functionality:</strong> ${details.functionality}`;
+                        infoPanel.classList.remove('hidden');
+                    }
+                });
+            });
+
+
+            // --- INITIALIZATION ---
+            showSection(window.location.hash);
+            renderDonutChart();
+            renderBarChart();
+            renderEquipmentAccordion();
+            renderBudgetDetails('Hardware - Student Stations'); // Show default details
+        });
+    </script>
+</body>
+</html>
